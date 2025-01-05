@@ -1,7 +1,7 @@
-using NutriApp.DTOs;
+using NutriApp.DTOs.Requests;
 using NutriApp.Responses;
 
-namespace NutriApp.Services
+namespace NutriApp.Services.Interfaces
 {
     public interface IAuthService
     {

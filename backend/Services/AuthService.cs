@@ -1,116 +1,83 @@
-using NutriApp.Models;
-using NutriApp.Repositories.Interfaces;
-using NutriApp.DTOs;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using NutriApp.Models;
+using NutriApp.Repositories.Interfaces;
+using NutriApp.Responses;
+using NutriApp.Services.Interfaces;
+using NutriApp.DTOs.Requests;
 
 namespace NutriApp.Services
 {
-    public class AuthService
+    public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
-        private readonly IConfiguration _config;
+        private readonly string _jwtSecret;
 
-        public AuthService(IUserRepository userRepository, IConfiguration config)
+        public AuthService(IUserRepository userRepository)
         {
             _userRepository = userRepository;
-            _config = config;
+            _jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? throw new ArgumentNullException("JWT_SECRET is not set");
         }
 
-        private string GenerateJwtToken(User user)
+        public async Task<ApiResponse> RegisterUser(RegisterRequest request)
         {
-            var key = Encoding.ASCII.GetBytes(_config["Jwt:Secret"]);
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, user.Role)
-                }),
-                Expires = DateTime.UtcNow.AddHours(2),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
-        }
-
-        public async Task<(bool Success, Dictionary<string, string>? Errors, string? Token)> Login(LoginRequest request)
-        {
-            var errors = new Dictionary<string, string>();
-
-            var user = await _userRepository.GetUserByEmail(request.Email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
-            {
-                errors["non_field_errors"] = "Invalid email or password.";
-                return (false, errors, null);
-            }
-
-            var token = GenerateJwtToken(user);
-            return (true, null, token);
-        }
-
-
-        public async Task<(bool Success, Dictionary<string, string>? Errors, User? User)> RegisterUser(RegisterRequest request)
-        {
-            var errors = new Dictionary<string, string>();
-
-            // Walidacja wejściowa
-            if (string.IsNullOrWhiteSpace(request.Email))
-                errors["email"] = "Email is required.";
-
-            if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
-                errors["password"] = "Password must be at least 6 characters long.";
-
-            if (errors.Count > 0)
-                return (false, errors, null);
-
-            // Sprawdzenie, czy użytkownik już istnieje
             if (await _userRepository.UserExists(request.Email))
             {
-                errors["email"] = "User with this email already exists.";
-                return (false, errors, null);
+                return ApiResponse.ErrorResponse("Validation failed.", new Dictionary<string, string> { { "email", "User with this email already exists." } });
             }
 
-            // Tworzenie nowego użytkownika
             var user = new User
             {
                 Email = request.Email,
                 Username = request.Username,
-                Role = "Parent",
+                Role = request.Role,
                 Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 SignupSource = request.SignupSource,
                 Language = request.Language,
                 Country = request.Country,
                 DeviceType = request.DeviceType,
                 Os = request.Os,
-                AppVersion = request.AppVersion,
-                CreatedDate = DateTime.UtcNow
+                AppVersion = request.AppVersion
             };
 
-            var createdUser = await _userRepository.CreateUser(user);
-            return (true, null, createdUser);
+            await _userRepository.CreateUser(user);
+            return ApiResponse.SuccessResponse("User registered successfully.");
         }
 
-        public async Task<(bool Success, Dictionary<string, string>? Errors)> ResetPassword(string email, string newPassword)
+        public async Task<(bool Success, Dictionary<string, string>? Errors, string? Token)> Login(LoginRequest request)
         {
-            var errors = new Dictionary<string, string>();
-
-            var user = await _userRepository.GetUserByEmail(email);
-            if (user == null)
+            var user = await _userRepository.GetUserByEmail(request.Email);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
             {
-                errors["email"] = "No account found with this email.";
-                return (false, errors);
+                return (false, new Dictionary<string, string> { { "email", "Invalid credentials." } }, null);
             }
 
-            user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            await _userRepository.UpdateUser(user);
-
-            return (true, null);
+            var token = GenerateJwtToken(user);
+            return (true, null, token);
         }
 
+        private string GenerateJwtToken(User user)
+        {
+            var keyBytes = Encoding.UTF8.GetBytes(_jwtSecret);
+            var key = new SymmetricSecurityKey(keyBytes);
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("role", user.Role)
+            };
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(24),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
     }
 }
