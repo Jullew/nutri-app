@@ -133,3 +133,5 @@ E:\nutri-app\backend\obj\Debug\net8.0\refint\NutriApp.dll
 E:\nutri-app\backend\obj\Debug\net8.0\NutriApp.pdb
 E:\nutri-app\backend\obj\Debug\net8.0\NutriApp.genruntimeconfig.cache
 E:\nutri-app\backend\obj\Debug\net8.0\ref\NutriApp.dll
+E:\nutri-app\backend\bin\Debug\net8.0\BCrypt.Net-Next.dll
+E:\nutri-app\backend\obj\Debug\net8.0\NutriApp.sourcelink.json

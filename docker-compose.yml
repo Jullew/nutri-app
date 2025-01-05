@@ -1,4 +1,5 @@
-version: "3.9"
+networks:
+  nutriapp_network:  # Definiujemy sieć
 services:
   backend:
     build:
@@ -13,6 +14,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
+    command: ["sh", "-c", "dotnet ef database update && dotnet NutriApp.dll"]
 
   database:
     build:
@@ -25,6 +27,19 @@ services:
       - "${POSTGRES_PORT}:${POSTGRES_PORT}"
     volumes:
       - db_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@nutrikid.io
+      PGADMIN_DEFAULT_PASSWORD: NutriApp1@
+    ports:
+      - "5050:80"
+    depends_on:
+      - database
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
 
   frontend:
     build:
@@ -52,3 +67,4 @@ services:
 
 volumes:
   db_data:
+  pgadmin_data:
