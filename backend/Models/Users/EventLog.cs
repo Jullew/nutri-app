@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace NutriApp.Models
+namespace NutriApp.Models.Users
 {
     public class EventLog
     {

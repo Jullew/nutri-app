@@ -1,6 +1,8 @@
-import { useMediaQuery, Box, Drawer } from "@mui/material";
+"use client";
+import { useMediaQuery, Box, Drawer, Theme } from "@mui/material";
 import SidebarItems from "./SidebarItems";
 import { Upgrade } from "./Updrade";
+import { Logo, Sidebar } from "react-mui-sidebar";
 
 interface ItemType {
   isMobileSidebarOpen: boolean;
@@ -13,7 +15,7 @@ const MSidebar = ({
   onSidebarClose,
   isSidebarOpen,
 }: ItemType) => {
-  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up("lg"));
+  const lgUp = useMediaQuery((theme: Theme) => theme.breakpoints.up("lg"));
 
   const sidebarWidth = "270px";
 
